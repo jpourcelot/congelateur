@@ -1,12 +1,17 @@
 
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
-
+#include "OneWire.h"
+#include "DallasTemperature.h"
+ 
 
 const int chipSelect = 10;
 const int eeAddress = 0;
 
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+OneWire oneWire(A1);
+DallasTemperature ds(&oneWire);
+
 int lcd_key = 0;
 int adc_key_in = 0;
 #define btnRIGHT 0
@@ -19,35 +24,73 @@ int adc_key_in = 0;
 signed char saved;
 
 boolean changing;
+const int refreshIni = 20;
+int refresh;
+
+int mesurement;
+int min = 100;
+int max = -100;
+
+const int relayPin = 7;
+boolean relayState;
+
+const int alarmPin = 6;
+signed char alarm = -10;
 
 void setup() {
   Serial.begin(9600);
   Serial.println("Start");
   delay(1000);
   lcd.begin(16, 2);   
-  saved = readTemp();
+  saved = readSavedTemp();
   if(saved > -10 || saved < -30){
     Serial.println("Saved out of bounds");
     saveTemp({-18});
   }
   changing = false;
+  ds.begin();          // sonde activée
+  mesurement = readTemp();
+  line1();
+  refresh = refreshIni;
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, 0);
+  pinMode(alarmPin, OUTPUT);
+  digitalWrite(alarmPin, 0);
+  relayState = false;
 }
 
 void loop() {     
-  lcd.setCursor(0,0);
-  lcd.print("              ");
-  lcd.setCursor(0,0);
-  if(changing){
-    lcd.print("<< " + String(saved) + " >>");
-  }else{
-    lcd.print(saved);
+  if(changing || refresh < 0){
+    if(refresh <= 0){
+      refresh = refreshIni;
+      mesurement = readTemp();
+    }
+    if(mesurement >= alarm){
+      digitalWrite(alarmPin, 1);
+    } else{
+      digitalWrite(alarmPin, 0);
+    }
+    if(mesurement > max){
+      max = mesurement;
+    }
+    if(mesurement < min){
+      min = mesurement;
+    }
+    if(mesurement <= saved - 1){
+      relayState = false;
+    }
+    if(mesurement >= saved){
+      relayState = true;
+    }
+    digitalWrite(relayPin, relayState);
+    line1();
+    line2();
   }
+  
   lcd_key = read_LCD_buttons();
-  lcd.setCursor(0,1);
   switch (lcd_key){
     case btnRIGHT:
       {
-      lcd.print("RIGHT ");
       break;
       }
     case btnUP:
@@ -64,14 +107,14 @@ void loop() {
       }
     case btnLEFT:
       {
-      lcd.print("left ");
       break;
       }
     case btnSELECT:
       {
       saveTemp(saved);
-      saved = readTemp(); //to ensure saved
+      saved = readSavedTemp(); //to ensure saved
       changing = false;
+      line1();
       break;
       }
     case btnNONE:
@@ -79,7 +122,8 @@ void loop() {
       break;
       }
   }
-  delay(500);
+  delay(200);
+  refresh--;
 }
 
 int read_LCD_buttons()
@@ -105,9 +149,38 @@ void saveTemp(signed char temp){
   EEPROM.put(eeAddress, temp);
 }
 
-byte readTemp(){
+byte readSavedTemp(){
   signed char d;
   EEPROM.get(eeAddress, d);
   Serial.println(d);
   return (d);
+}
+
+int readTemp(){
+  ds.requestTemperatures();
+  int t = ds.getTempCByIndex(0);
+  return t;
+}
+
+void line1(){
+  lcd.setCursor(0,0);
+  lcd.print("                ");
+  lcd.setCursor(0,0);
+  String state = "(off)";
+  if(relayState){
+    state = "(on)";
+  }
+  if(changing){
+    lcd.print("<" + String(saved) + ">");
+  }else{
+    lcd.print(saved);
+  }
+  lcd.print( " => " + String( mesurement ) + state);
+}
+
+void line2(){
+  lcd.setCursor(0,1);
+  lcd.print("                ");
+  lcd.setCursor(0,1);
+  lcd.print("min" + String(min) + "/max" + String(max));
 }
