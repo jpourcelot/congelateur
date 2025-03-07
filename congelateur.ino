@@ -29,7 +29,7 @@ int adc_key_in = 0;
 signed char saved;
 
 boolean changing;
-const int refreshIni = 20;
+const int refreshIni = 200;
 int refresh;
 
 int mesurement;
@@ -80,10 +80,10 @@ void loop() {
       min = mesurement;
     }
     if(mesurement <= saved - 1){
-      relayState = false;
+      relayState = true;
     }
     if(mesurement >= saved){
-      relayState = true;
+      relayState = false;
     }
     digitalWrite(relayPin, relayState);
     line1();
@@ -170,7 +170,7 @@ void line1(){
   lcd.print("                ");
   lcd.setCursor(0,0);
   String state = "(off)";
-  if(relayState){
+  if(!relayState){
     state = "(on)";
   }
   if(changing){
