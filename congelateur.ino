@@ -5,11 +5,16 @@
 #include "DallasTemperature.h"
  
 
-const int chipSelect = 10;
+//const int chipSelect = 10;
 const int eeAddress = 0;
 
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
-OneWire oneWire(A1);
+const int alarmPin = 3;
+const int relayPin = 2;
+
+
+OneWire oneWire(A0);
+
 DallasTemperature ds(&oneWire);
 
 int lcd_key = 0;
@@ -31,10 +36,8 @@ int mesurement;
 int min = 100;
 int max = -100;
 
-const int relayPin = 7;
 boolean relayState;
 
-const int alarmPin = 6;
 signed char alarm = -10;
 
 void setup() {
