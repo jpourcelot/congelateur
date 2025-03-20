@@ -3,10 +3,12 @@
 #include <EEPROM.h>
 #include "OneWire.h"
 #include "DallasTemperature.h"
+#include <avr/wdt.h>
  
 
 //const int chipSelect = 10;
 const int eeAddress = 0;
+const int countAdress = 1;
 
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 const int alarmPin = 3;
@@ -29,7 +31,7 @@ int adc_key_in = 0;
 signed char saved;
 
 boolean changing;
-const int refreshIni = 200;
+const int refreshIni = 300;
 int refresh;
 
 int mesurement;
@@ -60,10 +62,13 @@ void setup() {
   pinMode(alarmPin, OUTPUT);
   digitalWrite(alarmPin, 0);
   relayState = false;
+  incrementStartCount();
+  delay(2000);
+  wdt_enable(WDTO_4S);           
 }
 
 void loop() {     
-  if(changing || refresh < 0){
+  if(changing || refresh <= 0){
     if(refresh <= 0){
       refresh = refreshIni;
       mesurement = readTemp();
@@ -86,6 +91,7 @@ void loop() {
       relayState = false;
     }
     digitalWrite(relayPin, relayState);
+    lcd.clear();
     line1();
     line2();
   }
@@ -126,6 +132,7 @@ void loop() {
       }
   }
   delay(200);
+  wdt_reset();
   refresh--;
 }
 
@@ -155,7 +162,7 @@ void saveTemp(signed char temp){
 byte readSavedTemp(){
   signed char d;
   EEPROM.get(eeAddress, d);
-  Serial.println(d);
+  //Serial.println(d);
   return (d);
 }
 
@@ -186,4 +193,15 @@ void line2(){
   lcd.print("                ");
   lcd.setCursor(0,1);
   lcd.print("min" + String(min) + "/max" + String(max));
+}
+
+void incrementStartCount(){
+  signed char d;
+  EEPROM.get(countAdress, d);
+  EEPROM.put(countAdress, d + 1);
+  
+  lcd.setCursor(0,1);
+  lcd.print("                ");
+  lcd.setCursor(0,1);
+  lcd.print("Counter" + String(d + 1));
 }
